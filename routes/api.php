@@ -1,105 +1,143 @@
 <?php
 
 use Illuminate\Http\Request;
+use \App\Laravue\Faker;
+use \App\Laravue\JsonResponse;
 
-/* Login */
-Route::group(['prefix' => 'auth'], function () {
-    Route::post('login', 'AuthController@login');
-    Route::post('signup', 'AuthController@signup');
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
 
-    Route::group([
-        'middleware' => ['auth:api']
-    ], function () {
-        Route::get('logout', 'AuthController@logout');
-        Route::get('user', 'AuthController@user');
+Route::middleware('auth:api')->get('/user', function (Request $request) {
+    return $request->user();
+});
+
+Route::group(['middleware' => 'api'], function () {
+    Route::post('auth/login', 'AuthController@login');
+    Route::group(['middleware' => 'auth:api'], function () {
+        Route::get('auth/user', 'AuthController@user');
+        Route::post('auth/logout', 'AuthController@logout');
     });
-});
+	
+	
+    Route::apiResource('users', 'UserController')->middleware('permission:' . \App\Laravue\Acl::PERMISSION_USER_MANAGE);
+    Route::get('users/{user}/permissions', 'UserController@permissions')->middleware('permission:' . \App\Laravue\Acl::PERMISSION_PERMISSION_MANAGE);
+    Route::put('users/{user}/permissions', 'UserController@updatePermissions')->middleware('permission:' . \App\Laravue\Acl::PERMISSION_PERMISSION_MANAGE);
+    Route::apiResource('roles', 'RoleController')->middleware('permission:' . \App\Laravue\Acl::PERMISSION_PERMISSION_MANAGE);
+    Route::get('roles/{role}/permissions', 'RoleController@permissions')->middleware('permission:' . \App\Laravue\Acl::PERMISSION_PERMISSION_MANAGE);
+    Route::apiResource('permissions', 'PermissionController')->middleware('permission:' . \App\Laravue\Acl::PERMISSION_PERMISSION_MANAGE);
 
-Route::group(['middleware' => ['auth:api', 'isAdmin'], 'prefix' => 'admin'], function () {
-    Route::get('/summary-report', 'SummaryController@getSummaryReport');
-    /* Admin 3 */
-    Route::get('/exam-sessions', 'ExamSessionController@getExamSessions');
-    Route::get('exam-session/{examSession}', 'ExamSessionController@getOneExamSession');
-    Route::get('all-module', 'ExamSessionController@getAllModules');
-    Route::get('all-testSites', 'ExamSessionController@getAllTestSites');
-    Route::post('exam-session', 'ExamSessionController@storeExamSession');
-    Route::put('exam-session/{examSession}', 'ExamSessionController@updateExamSession');
-    Route::delete('exam-session/{examSession}', 'ExamSessionController@deleteOneExamSession');
-    Route::delete('many-exam-sessions', 'ExamSessionController@deleteManyExamSessions');
+    // Fake APIs
+    Route::get('/table/list', function () {
+        $rowsNumber = mt_rand(20, 30);
+        $data = [];
+        for ($rowIndex = 0; $rowIndex < $rowsNumber; $rowIndex++) {
+            $row = [
+                'author' => Faker::randomString(mt_rand(5, 10)),
+                'display_time' => Faker::randomDateTime()->format('Y-m-d H:i:s'),
+                'id' => mt_rand(100000, 100000000),
+                'pageviews' => mt_rand(100, 10000),
+                'status' => Faker::randomInArray(['deleted', 'published', 'draft']),
+                'title' => Faker::randomString(mt_rand(20, 50)),
+            ];
 
-    /* Admin 4 */
-    Route::get('/test-rooms', 'TestRoomController@getTestRooms');
-    Route::get('test-room/{testRoom}', 'TestRoomController@getOneTestRoom');
-    Route::post('test-room', 'TestRoomController@storeTestRoom');
-    Route::put('test-room/{testRoom}', 'TestRoomController@updateTestRoom');
-    Route::delete('test-room/{testRoom}', 'TestRoomController@deleteOneTestRoom');
-    Route::delete('many-test-rooms', 'TestRoomController@deleteManyTestRooms');
-    Route::get('/all-rooms', 'TestRoomController@getAllRooms');
-    Route::get('/all-exam-sessions', 'TestRoomController@getAllExamSessions');
+            $data[] = $row;
+        }
 
-    /* Admin 5 */
-    Route::get('/test-sites', 'TestSiteController@getTestSites');
-    Route::get('test-site/{testSite}', 'TestSiteController@getOneTestSite');
-    Route::post('test-site', 'TestSiteController@storeTestSite');
-    Route::put('test-site/{testSite}', 'TestSiteController@updateTestSite');
-    Route::delete('test-site/{testSite}', 'TestSiteController@deleteOneTestSite');
-    Route::delete('many-test-sites', 'TestSiteController@deleteManyTestSites');
-    Route::get('all-exams', 'TestSiteController@getAllExams');
-    /* Admin 6 */
-    Route::get('/exams', 'ExamController@getExams');
-    Route::get('exam/{exam}', 'ExamController@getOneExam');
-    Route::post('exam', 'ExamController@storeExam');
-    Route::put('exam/{exam}', 'ExamController@updateExam');
-    Route::delete('exam/{exam}', 'ExamController@deleteOneExam');
-    Route::delete('many-exams', 'ExamController@deleteManyExams');
+        return response()->json(new JsonResponse(['items' => $data]));
+    });
 
-    /* Admin 7 */
-    Route::get('/students', 'StudentController@getStudents');
-    Route::get('student/{student}', 'StudentController@getOneStudent');
-    Route::post('student', 'StudentController@storeStudent');
-    Route::put('student/{student}', 'StudentController@updateStudent');
-    Route::delete('student/{student}', 'StudentController@deleteOneStudent');
-    Route::delete('many-students', 'StudentController@deleteManyStudents');
-    Route::post('student/import', 'StudentController@importExcel');
-    /* Admin 8 */
-    Route::get('/modules', 'ModuleController@getModules');
-    Route::get('module/{module}', 'ModuleController@getOneModule');
-    Route::post('module', 'ModuleController@storeModule');
-    Route::put('module/{module}', 'ModuleController@updateModule');
-    Route::delete('module/{module}', 'ModuleController@deleteOneModule');
-    Route::delete('many-modules', 'ModuleController@deleteManyModules');
-    Route::get('module/all-students/{module}', 'ModuleController@getAllStudentsInModule');
-    Route::post('module/remove-one-student', 'ModuleController@removeOneStudentFromModule');
-    Route::get('/module/all-students-to-add/{module}', 'ModuleController@getAllStudentsToAdd');
-    Route::post('/module/add-students', 'ModuleController@addStudentsToModule');
-    Route::post('/module/toggle-student-status', 'ModuleController@toggleStudentModuleStatus');
-    /* Admin 9 */
-    Route::get('/rooms', 'RoomController@getRooms');
-    Route::get('room/{room}', 'RoomController@getOneRoom');
-    Route::post('room', 'RoomController@storeRoom');
-    Route::put('room/{room}', 'RoomController@updateRoom');
-    Route::delete('room/{room}', 'RoomController@deleteOneRoom');
-    Route::delete('many-rooms', 'RoomController@deleteManyRooms');
+    Route::get('/orders', function () {
+        $rowsNumber = 8;
+        $data = [];
+        for ($rowIndex = 0; $rowIndex < $rowsNumber; $rowIndex++) {
+            $row = [
+                'order_no' => 'LARAVUE' . mt_rand(1000000, 9999999),
+                'price' => mt_rand(10000, 999999),
+                'status' => Faker::randomInArray(['success', 'pending']),
+            ];
 
-    /* Admin 10 */
-    Route::get('/universities', 'UniversityController@getUniversities');
-    Route::get('university/{university}', 'UniversityController@getOneUniversity');
-    Route::post('university', 'UniversityController@storeUniversity');
-    Route::put('university/{university}', 'UniversityController@updateUniversity');
-    Route::delete('university/{university}', 'UniversityController@deleteOneUniversity');
-    Route::delete('many-universities', 'UniversityController@deleteManyUniversities');
-});
+            $data[] = $row;
+        }
 
-Route::group(['middleware' => ['auth:api', 'isAdminOrSelf'], 'prefix' => 'user'], function () {
-    Route::get('/all-modules', 'ClientController@getAllModules');
-    Route::get('/all-exam-sessions/{module}', 'ClientController@getAllModuleExamSessions');
-    Route::get('/all-registed-sessions', 'ClientController@getAllRegistedSessions');
-    Route::get('/all-registed-sessions-np', 'ClientController@getAllRegistedSessionsNp');
-    Route::get('/exam-session-computers/{examSession}', 'ClientController@totalExamSessionComputers');
-    Route::get('/exam-session-registed-computers/{examSession}', 'ClientController@totalExamSessionRegistedComputers');
-    Route::post('/register-session', 'ClientController@registerSession');
-    Route::post('/unregister-session', 'ClientController@unRegisterASession');
-    Route::get('/is-registed-module/{module}', 'ClientController@isRegistedModule');
+        return response()->json(new JsonResponse(['items' => $data]));
+    });
 
-    Route::post('/change-pass', 'ClientController@changePassword');
+    Route::get('/articles', function () {
+        $rowsNumber = 10;
+        $data = [];
+        for ($rowIndex = 0; $rowIndex < $rowsNumber; $rowIndex++) {
+            $row = [
+                'id' => mt_rand(100, 10000),
+                'display_time' => Faker::randomDateTime()->format('Y-m-d H:i:s'),
+                'title' => Faker::randomString(mt_rand(20, 50)),
+                'author' => Faker::randomString(mt_rand(5, 10)),
+                'comment_disabled' => Faker::randomBoolean(),
+                'content' => Faker::randomString(mt_rand(100, 300)),
+                'content_short' => Faker::randomString(mt_rand(30, 50)),
+                'status' => Faker::randomInArray(['deleted', 'published', 'draft']),
+                'forecast' => mt_rand(100, 9999) / 100,
+                'image_uri' => 'https://via.placeholder.com/400x300',
+                'importance' => mt_rand(1, 3),
+                'pageviews' => mt_rand(10000, 999999),
+                'reviewer' => Faker::randomString(mt_rand(5, 10)),
+                'timestamp' => Faker::randomDateTime()->getTimestamp(),
+                'type' => Faker::randomInArray(['US', 'VI', 'JA']),
+
+            ];
+
+            $data[] = $row;
+        }
+
+        return response()->json(new JsonResponse(['items' => $data, 'total' => mt_rand(1000, 10000)]));
+    });
+
+    Route::get('articles/{id}', function ($id) {
+        $article = [
+            'id' => $id,
+            'display_time' => Faker::randomDateTime()->format('Y-m-d H:i:s'),
+            'title' => Faker::randomString(mt_rand(20, 50)),
+            'author' => Faker::randomString(mt_rand(5, 10)),
+            'comment_disabled' => Faker::randomBoolean(),
+            'content' => Faker::randomString(mt_rand(100, 300)),
+            'content_short' => Faker::randomString(mt_rand(30, 50)),
+            'status' => Faker::randomInArray(['deleted', 'published', 'draft']),
+            'forecast' => mt_rand(100, 9999) / 100,
+            'image_uri' => 'https://via.placeholder.com/400x300',
+            'importance' => mt_rand(1, 3),
+            'pageviews' => mt_rand(10000, 999999),
+            'reviewer' => Faker::randomString(mt_rand(5, 10)),
+            'timestamp' => Faker::randomDateTime()->getTimestamp(),
+            'type' => Faker::randomInArray(['US', 'VI', 'JA']),
+
+        ];
+
+        return response()->json(new JsonResponse($article));
+    });
+
+    Route::get('articles/{id}/pageviews', function ($id) {
+        $pageviews = [
+            'PC' => mt_rand(10000, 999999),
+            'Mobile' => mt_rand(10000, 999999),
+            'iOS' => mt_rand(10000, 999999),
+            'android' => mt_rand(10000, 999999),
+        ];
+        $data = [];
+        foreach ($pageviews as $device => $pageview) {
+            $data[] = [
+                'key' => $device,
+                'pv' => $pageview,
+            ];
+        }
+
+        return response()->json(new JsonResponse(['pvData' => $data]));
+    });
+
 });

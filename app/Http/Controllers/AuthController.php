@@ -1,102 +1,56 @@
 <?php
+/**
+ * File AuthController.php
+ *
+ * @author Tuan Duong <bacduong@gmail.com>
+ * @package Laravue
+ * @version 1.0
+ */
 namespace App\Http\Controllers;
+
+use App\Laravue\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
-use App\User;
+use App\Http\Resources\UserResource;
+
+/**
+ * Class AuthController
+ *
+ * @package App\Http\Controllers
+ */
 class AuthController extends Controller
 {
     /**
-     * Create user
-     *
-     * @param  [string] name
-     * @param  [string] email
-     * @param  [string] password
-     * @param  [string] password_confirmation
-     * @return [string] message
-     */
-    public function signup(Request $request)
-    {
-        $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|confirmed'
-        ]);
-        $user = new User([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password)
-        ]);
-        $user->save();
-        return response()->json([
-            'message' => 'Successfully created user!'
-        ], 201);
-    }
-
-    /**
-     * Login user and create token
-     *
-     * @param  [string] email
-     * @param  [string] password
-     * @param  [boolean] remember_me
-     * @return [string] access_token
-     * @return [string] token_type
-     * @return [string] expires_at
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function login(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string',
-            'password' => 'required|string',
-            'remember_me' => 'boolean'
-        ], [
-          'name.required' => 'Bạn chưa nhập tài khoản',
-          'password.required' => 'Bạn chưa nhập mật khẩu'
-        ]);
-        $credentials = request(['name', 'password']);
-        if(!Auth::attempt($credentials)) {
-          throw new \Exception("Tài khoản hoặc mật khẩu không đúng", 1);
-
-          return response()->json([
-              'message' => 'Unauthorized'
-          ], 401);
+        $credentials = $request->only('email', 'password');
+        if ($token = $this->guard()->attempt($credentials)) {
+            return response()->json(new UserResource(Auth::user()), Response::HTTP_OK)->header('Authorization', $token);
         }
-        $user = $request->user();
-        $tokenResult = $user->createToken('Personal Access Token');
-        $token = $tokenResult->token;
-        if ($request->remember_me)
-            $token->expires_at = Carbon::now()->addWeeks(1);
-        $token->save();
-        return response()->json([
-            'access_token' => $tokenResult->accessToken,
-            'token_type' => 'Bearer',
-            'role'=> $user->role,
-            'expires_at' => Carbon::parse(
-                $tokenResult->token->expires_at
-            )->toDateTimeString()
-        ]);
+
+        return response()->json(new JsonResponse([], 'login_error'), Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function logout()
+    {
+        $this->guard()->logout();
+        return response()->json((new JsonResponse())->success([]), Response::HTTP_OK);
+    }
+
+    public function user()
+    {
+        return new UserResource(Auth::user());
     }
 
     /**
-     * Logout user (Revoke the token)
-     *
-     * @return [string] message
+     * @return mixed
      */
-    public function logout(Request $request)
+    private function guard()
     {
-        $request->user()->token()->revoke();
-        return response()->json([
-            'message' => 'Successfully logged out'
-        ]);
-    }
-
-    /**
-     * Get the authenticated User
-     *
-     * @return [json] user object
-     */
-    public function user(Request $request)
-    {
-        return response()->json($request->user());
+        return Auth::guard();
     }
 }

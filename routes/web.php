@@ -11,6 +11,10 @@
 |
 */
 
-Route::get('/', 'HomeController@index');
-Route::get('/admin/test-room/print/{testRoomId}', 'TestRoomController@printTestRoom');
-Route::get('/{view?}', 'HomeController@index')->where('view', '(.*)');
+Route::get('/', function () {
+    return view('welcome');
+});
+
+Route::group(['middleware' => 'web'], function () {
+    Route::get(env('LARAVUE_PATH'), 'LaravueController@index')->where('any', '.*')->name('laravue');
+});

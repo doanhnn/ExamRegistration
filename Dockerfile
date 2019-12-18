@@ -1,48 +1,21 @@
-FROM php:7.2-fpm
+# Set the base image for subsequent instructions
+FROM php:7.2
 
-# Copy composer.lock and composer.json
-COPY composer.lock composer.json /var/www/
+# Update packages
+RUN apt-get update
 
-# Set working directory
-WORKDIR /var/www
+# Install PHP and composer dependencies
+RUN apt-get install -qq git curl libmcrypt-dev libjpeg-dev libpng-dev libfreetype6-dev libbz2-dev
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-#    mysql-client \
-    locales \
-    git \
-    unzip \
-    zip \
-    curl
+# Clear out the local repository of retrieved package files
+RUN apt-get clean
 
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install needed extensions
+# Here you can install any other extension that you need during the test and deployment process
+RUN docker-php-ext-install mcrypt pdo_mysql zip
 
-# Install extensions
-RUN docker-php-ext-install pdo_mysql mbstring  exif pcntl
+# Install Composer
+RUN curl --silent --show-error https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Install composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-RUN curl --silent --location https://deb.nodesource.com/setup_8.x | bash -
-RUN apt-get install --yes npm
-RUN apt-get install --yes build-essential
-
-# Add user for laravel application
-RUN groupadd -g 1000 www
-RUN useradd -u 1000 -ms /bin/bash -g www www
-
-
-# Copy existing application directory contents
-COPY . /var/www
-
-# Copy existing application directory permissions
-COPY --chown=www:www . /var/www
-
-# Change current user to www
-USER www
-
-# Expose port 9000 and start php-fpm server
-EXPOSE 9000
-CMD ["php-fpm"]
+# Install Laravel Envoy
+RUN composer global require "laravel/envoy=~1.0"
